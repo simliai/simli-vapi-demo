@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 import ActiveCallDetail from "./components/ActiveCallDetail";
 import Button from "./components/base/Button";
 import Vapi from "@vapi-ai/web";
+import { SimliClient } from "simli-client";
 import { isPublicKeyMissingError } from "./utils";
 
-// Put your Vapi Public Key below.
-const vapi = new Vapi("0000XXXX-XXXX-XXXX-XXXX-XXXXXXXX0000");
+const simliClient = new SimliClient();
+const vapi = new Vapi("fbed6235-55e4-4dd0-9ddb-f44dd552ac19");
+
+const TARGET_SAMPLE_RATE = 16000;
 
 const App = () => {
   const [connecting, setConnecting] = useState(false);
@@ -16,6 +19,9 @@ const App = () => {
   const [volumeLevel, setVolumeLevel] = useState(0);
 
   const { showPublicKeyInvalidMessage, setShowPublicKeyInvalidMessage } = usePublicKeyInvalid();
+
+  const videoRef = useRef(null);
+  const audioRef = useRef(null);
 
   // hook into Vapi events
   useEffect(() => {
@@ -58,8 +64,36 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!connected) return;
+
+    const callObject = vapi.getDailyCallObject();
+    console.log('callObject', callObject);
+    if (!callObject) return;
+
+    callObject.on('participant-joined', event => {
+      const { participant } = event;
+      console.log('participant-joined', participant);
+      if (!participant.local) {
+        const tracks = participant.tracks;
+    
+        // Do something with the tracks
+      }
+    });
+  }, [connected]);
+
   // call start handler
-  const startCallInline = () => {
+  const startCallInline = async () => {
+    const simliConfig = {
+      apiKey: 'y47dkuw2xbowabxjv2haaf',
+      faceID: 'tmp9i8bbq7c',
+      handleSilence: true,
+      videoRef: videoRef,
+      audioRef: audioRef,
+    };
+    simliClient.Initialize(simliConfig);
+    // await simliClient.start();
+
     setConnecting(true);
     vapi.start(assistantOptions);
   };
@@ -77,11 +111,16 @@ const App = () => {
         alignItems: "center",
       }}
     >
+      <div>
+        <video ref={videoRef} autoPlay playsInline></video>
+        <audio ref={audioRef} autoPlay></audio>
+      </div>
       {!connected ? (
         <Button
           label="Call Vapi’s Pizza Front Desk"
           onClick={startCallInline}
           isLoading={connecting}
+          disabled={connecting}
         />
       ) : (
         <ActiveCallDetail
